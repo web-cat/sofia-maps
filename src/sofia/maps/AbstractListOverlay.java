@@ -1,6 +1,7 @@
 package sofia.maps;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -47,7 +48,7 @@ import com.google.android.maps.Overlay;
  * overlay's {@code MapView} (for example, their {@link MapScreen} class) to
  * receive event notifications:
  * <dl>
- * <dt><code>[void|boolean] onMapItemClicked(Item item)</code></dt>
+ * <dt><code>[void|boolean] mapItemWasClicked(Item item)</code></dt>
  * <dd>Called when the user clicks the location on the map representing one of
  * the items in the list. The type of the "item" parameter must be compatible
  * with the type of objects in the overlay's list. If this method is boolean
@@ -55,7 +56,7 @@ import com.google.android.maps.Overlay;
  * balloon popup will not appear.
  * </dd>
 
- * <dt><code>void onMapBalloonClicked(Item item)</code></dt>
+ * <dt><code>void mapBalloonWasClicked(Item item)</code></dt>
  * <dd>Called when the balloon popup attached to the specified item is clicked.
  * The type of the "item" parameter must be compatible with the type of objects
  * in the overlay's list.</dd>
@@ -70,6 +71,8 @@ import com.google.android.maps.Overlay;
 public abstract class AbstractListOverlay<Item> extends Overlay
 {
 	//~ Instance/static variables .............................................
+
+	private static final String ITEM_CLICKED_METHOD_NAME = "mapItemWasClicked";
 
 	private List<Item> list;
 
@@ -186,10 +189,8 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 			{
 				if (hitTest(tapPoint, itemPoint, item))
 				{
-					mapView.getController().animateTo(itemPoint);
-
 					MethodDispatcher dispatcher = new MethodDispatcher(
-							"onMapItemClicked", 1);
+							ITEM_CLICKED_METHOD_NAME, 1);
 
 					if (showsBalloonWhenClicked
 							&& !dispatcher.callMethodOn(
@@ -199,6 +200,8 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 						opened = true;
 						break;
 					}
+
+					mapView.getController().animateTo(itemPoint);
 				}
 			}
 		}
@@ -260,7 +263,18 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 		}
 
 		balloonView.setFields(
-				item, getItemTitle(item), getItemSnippet(item));
+				item, getItemTitle(item), getItemContent(item));
+		balloonView.post(new Runnable() {
+			@Override
+			public void run()
+			{
+				int cx = balloonView.getLeft() + balloonView.getWidth() / 2;
+				int cy = balloonView.getTop() + balloonView.getHeight() / 2;
+
+				GeoPoint shiftedPoint = mapView.getProjection().fromPixels(cx, cy);
+				mapView.getController().animateTo(shiftedPoint);
+			}
+		});
 	}
 
 
@@ -295,17 +309,17 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 
 
 	// ----------------------------------------------------------
-	protected String getItemSnippet(Item item)
+	protected Object getItemContent(Item item)
 	{
-		String snippet; /*= decorate(decorator, "getMarkerDrawable",
+		Object content; /*= decorate(decorator, "getMarkerDrawable",
 				Drawable.class, item);
 		
 		if (snippet == null)*/
 		{
-			snippet = defaultDecorator.getItemSnippet(item);
+			content = defaultDecorator.getItemContent(item);
 		}
 		
-		return snippet;
+		return content;
 	}
 
 
@@ -324,11 +338,31 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 			{
 				try
 				{
-					return (GeoPoint) geoPointMethod.invoke(item);
+					Object result = geoPointMethod.invoke(item);
+					
+					if (result == null)
+					{
+						return null;
+					}
+					else if (result instanceof GeoPoint)
+					{
+						return (GeoPoint) result;
+					}
+					else
+					{
+						throw new IllegalStateException(
+								"The method annotated with "
+								+ "@ProvidesMarkerGeoPoint must return a "
+								+ "GeoPoint object.");
+					}
 				}
-				catch (Exception e)
+				catch (IllegalAccessException e)
 				{
-					return null;
+					throw new IllegalStateException(e);
+				}
+				catch (InvocationTargetException e)
+				{
+					throw new IllegalStateException(e.getCause());
 				}
 			}
 			else
@@ -337,26 +371,63 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 						item.getClass(), ProvidesMarkerLatitude.class);
 				Method longitudeMethod = getAnnotatedMethod(
 						item.getClass(), ProvidesMarkerLongitude.class);
-				
-				if (latitudeMethod != null && longitudeMethod != null)
+
+				if (latitudeMethod == null && longitudeMethod == null)
+				{
+					return null;
+				}
+				else if (latitudeMethod != null && longitudeMethod != null)
 				{
 					try
 					{
-						Number latitude = (Number) latitudeMethod.invoke(item);
-						Number longitude = (Number) longitudeMethod.invoke(item);
-						
-						return new GeoPoint(
-								(int) (latitude.doubleValue() * 1e6),
-								(int) (longitude.doubleValue() * 1e6));
+						Object latitude = (Number) latitudeMethod.invoke(item);
+						Object longitude = (Number) longitudeMethod.invoke(item);
+
+						if (latitude == null && longitude == null)
+						{
+							return null;
+						}
+						else if (latitude instanceof Number
+								&& longitude instanceof Number)
+						{
+							return new GeoPoint(
+									(int) (((Number) latitude)
+											.doubleValue() * 1e6),
+									(int) (((Number) longitude)
+											.doubleValue() * 1e6));
+						}
+						else if (latitude == null || longitude == null)
+						{
+							throw new IllegalStateException(
+									"If either @ProvidesMarkerLatitude or "
+									+ "@ProvidesMarkerLongitude returns null, "
+									+ "then the other must as well.");
+						}
+						else
+						{
+							throw new IllegalStateException(
+									"@ProvidesMarkerLatitude and "
+									+ "@ProvidesMarkerLongitude must return "
+									+ "a numeric value.");
+						}
 					}
-					catch (Exception e)
+					catch (IllegalAccessException e)
 					{
-						return null;
+						throw new IllegalStateException(e);
+					}
+					catch (InvocationTargetException e)
+					{
+						throw new IllegalStateException(e.getCause());
 					}
 				}
+				else
+				{
+					throw new IllegalStateException(
+							"If either @ProvidesMarkerLatitude or "
+							+ "@ProvidesMarkerLongitude is provided, then the "
+							+ "other must be as well.");
+				}				
 			}
-			
-			return null;
 		}
 
 
@@ -375,9 +446,13 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 					Object result = method.invoke(item);
 					return result != null ? result.toString() : null;
 				}
-				catch (Exception e)
+				catch (IllegalAccessException e)
 				{
-					// Do nothing; fall through to the default below.
+					throw new IllegalStateException(e);
+				}
+				catch (InvocationTargetException e)
+				{
+					throw new IllegalStateException(e.getCause());
 				}
 			}
 			else
@@ -390,27 +465,30 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 
 
 		// ----------------------------------------------------------
-		public String getItemSnippet(Object item)
+		public Object getItemContent(Object item)
 		{
-			String snippet = null;
+			Object content = null;
 			
 			Method method = getAnnotatedMethod(
-					item.getClass(), ProvidesMarkerSnippet.class);
+					item.getClass(), ProvidesMarkerContent.class);
 			
 			if (method != null)
 			{
 				try
 				{
-					Object result = method.invoke(item);
-					return result != null ? result.toString() : null;
+					content = method.invoke(item);
 				}
-				catch (Exception e)
+				catch (IllegalAccessException e)
 				{
-					// Do nothing; fall through to the default below.
+					throw new IllegalStateException(e);
+				}
+				catch (InvocationTargetException e)
+				{
+					throw new IllegalStateException(e.getCause());
 				}
 			}
 
-			return snippet;
+			return content;
 		}
 
 

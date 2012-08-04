@@ -4,6 +4,7 @@ import java.io.InputStream;
 
 import sofia.internal.JarResources;
 import sofia.internal.MethodDispatcher;
+import sofia.view.FlexibleContentView;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -13,6 +14,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.NinePatchDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -23,9 +25,13 @@ public class MapBalloonView extends FrameLayout
 {
 	//~ Instance/static variables .............................................
 
+	private static final String BALLOON_CLICKED_METHOD_NAME =
+			"mapBalloonWasClicked";
+
 	private LinearLayout layout;
+	private Rect imagePadding;
 	private TextView title;
-	private TextView snippet;
+	private FlexibleContentView content;
 	private Object currentItem;
 	
 
@@ -58,7 +64,7 @@ public class MapBalloonView extends FrameLayout
 	private void handleClick()
 	{
 		MethodDispatcher dispatcher = new MethodDispatcher(
-				"onMapBalloonClicked", 1);
+				BALLOON_CLICKED_METHOD_NAME, 1);
 		dispatcher.callMethodOn(getContext(), currentItem);
 	}
 
@@ -79,6 +85,8 @@ public class MapBalloonView extends FrameLayout
 		NinePatchDrawable drawable = new NinePatchDrawable(
 				context.getResources(), bitmap, chunk, padding,
 				"balloon.9.png");
+		imagePadding = new Rect();
+		drawable.getPadding(imagePadding);
 		layout.setBackgroundDrawable(drawable);
 
 		createFields(context, layout);
@@ -98,17 +106,18 @@ public class MapBalloonView extends FrameLayout
 		title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 		parent.addView(title, createFieldLayout());
 
-		snippet = new TextView(context);
-		snippet.setTextColor(res.getColor(
+		content = new FlexibleContentView(context);
+		content.setTextColor(res.getColor(
 				android.R.color.secondary_text_light));
-		snippet.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-		parent.addView(snippet, createFieldLayout());
+		content.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+		content.setMaxHeight(150);
+		parent.addView(content, createFieldLayout());
 	}
 	
 	
 	// ----------------------------------------------------------
 	public void setFields(Object currentItem,
-			String titleText, String snippetText)
+			String titleText, Object contentValue)
 	{
 		this.currentItem = currentItem;
 
@@ -117,7 +126,7 @@ public class MapBalloonView extends FrameLayout
 			title.setText(titleText);
 			title.setVisibility(VISIBLE);
 			
-			if (snippetText == null)
+			if (content == null)
 			{
 				title.setGravity(Gravity.CENTER);
 			}
@@ -131,24 +140,47 @@ public class MapBalloonView extends FrameLayout
 			title.setVisibility(GONE);
 		}
 
-		if (snippetText != null)
+		if (contentValue != null)
 		{
-			snippet.setText(snippetText);
-			snippet.setVisibility(VISIBLE);
+			content.setContent(contentValue);
+			content.setVisibility(VISIBLE);
 		}
 		else
 		{
-			snippet.setVisibility(GONE);
+			content.setVisibility(GONE);
 		}
 	}
-	
+
 
 	// ----------------------------------------------------------
 	private LinearLayout.LayoutParams createFieldLayout()
 	{
 		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-				LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-		lp.gravity = Gravity.CENTER_VERTICAL;
+				LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+		lp.gravity = Gravity.CENTER;
 		return lp;
+	}
+	
+	
+	// ----------------------------------------------------------
+	@Override
+	public boolean onTouchEvent(MotionEvent e)
+	{
+		// FIXME
+
+		float x = e.getX();
+		float y = e.getY();
+		
+		if (x < imagePadding.left
+				|| y < imagePadding.top
+				|| x > getWidth() - imagePadding.right
+				|| y > getHeight() - imagePadding.bottom)
+		{
+			return false;
+		}
+		else
+		{
+			return super.onTouchEvent(e);
+		}
 	}
 }
