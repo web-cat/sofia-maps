@@ -1,14 +1,11 @@
 package sofia.maps;
 
-import java.io.InputStream;
-
 import sofia.internal.JarResources;
 import sofia.internal.MethodDispatcher;
 import sofia.view.FlexibleContentView;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.NinePatchDrawable;
@@ -33,7 +30,7 @@ public class MapBalloonView extends FrameLayout
 	private TextView title;
 	private FlexibleContentView content;
 	private Object currentItem;
-	
+
 
 	//~ Constructors ..........................................................
 
@@ -59,7 +56,7 @@ public class MapBalloonView extends FrameLayout
 		addView(layout, lp);
 	}
 
-	
+
 	// ----------------------------------------------------------
 	private void handleClick()
 	{
@@ -76,9 +73,8 @@ public class MapBalloonView extends FrameLayout
 		layout.setOrientation(LinearLayout.VERTICAL);
 //		layout.setMinimumWidth(200);
 
-		InputStream stream = JarResources.getImageStream(
-				context, MapBalloonView.class, "balloon.9.png");
-		Bitmap bitmap = BitmapFactory.decodeStream(stream);
+		Bitmap bitmap = JarResources.getBitmap(
+            context, MapBalloonView.class, "balloon.9.png");
 		byte[] chunk = bitmap.getNinePatchChunk();
 		Rect padding = new Rect(8, 8, 8, 32);
 
@@ -113,8 +109,8 @@ public class MapBalloonView extends FrameLayout
 		content.setMaxHeight(150);
 		parent.addView(content, createFieldLayout());
 	}
-	
-	
+
+
 	// ----------------------------------------------------------
 	public void setFields(Object currentItem,
 			String titleText, Object contentValue)
@@ -125,7 +121,7 @@ public class MapBalloonView extends FrameLayout
 		{
 			title.setText(titleText);
 			title.setVisibility(VISIBLE);
-			
+
 			if (content == null)
 			{
 				title.setGravity(Gravity.CENTER);
