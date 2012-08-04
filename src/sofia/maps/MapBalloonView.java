@@ -1,13 +1,10 @@
 package sofia.maps;
 
-import java.io.InputStream;
-
 import sofia.internal.JarResources;
 import sofia.internal.MethodDispatcher;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.NinePatchDrawable;
@@ -27,7 +24,7 @@ public class MapBalloonView extends FrameLayout
 	private TextView title;
 	private TextView snippet;
 	private Object currentItem;
-	
+
 
 	//~ Constructors ..........................................................
 
@@ -53,7 +50,7 @@ public class MapBalloonView extends FrameLayout
 		addView(layout, lp);
 	}
 
-	
+
 	// ----------------------------------------------------------
 	private void handleClick()
 	{
@@ -70,9 +67,8 @@ public class MapBalloonView extends FrameLayout
 		layout.setOrientation(LinearLayout.VERTICAL);
 //		layout.setMinimumWidth(200);
 
-		InputStream stream = JarResources.getImageStream(
-				context, MapBalloonView.class, "balloon.9.png");
-		Bitmap bitmap = BitmapFactory.decodeStream(stream);
+		Bitmap bitmap = JarResources.getBitmap(
+            context, MapBalloonView.class, "balloon.9.png");
 		byte[] chunk = bitmap.getNinePatchChunk();
 		Rect padding = new Rect(8, 8, 8, 32);
 
@@ -104,8 +100,8 @@ public class MapBalloonView extends FrameLayout
 		snippet.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
 		parent.addView(snippet, createFieldLayout());
 	}
-	
-	
+
+
 	// ----------------------------------------------------------
 	public void setFields(Object currentItem,
 			String titleText, String snippetText)
@@ -116,7 +112,7 @@ public class MapBalloonView extends FrameLayout
 		{
 			title.setText(titleText);
 			title.setVisibility(VISIBLE);
-			
+
 			if (snippetText == null)
 			{
 				title.setGravity(Gravity.CENTER);
@@ -141,7 +137,7 @@ public class MapBalloonView extends FrameLayout
 			snippet.setVisibility(GONE);
 		}
 	}
-	
+
 
 	// ----------------------------------------------------------
 	private LinearLayout.LayoutParams createFieldLayout()

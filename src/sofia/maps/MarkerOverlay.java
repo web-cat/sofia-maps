@@ -1,18 +1,14 @@
 package sofia.maps;
 
-import java.io.InputStream;
 import java.util.List;
-
 import sofia.internal.JarResources;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-
 import com.google.android.maps.GeoPoint;
 import com.google.android.maps.MapView;
 import com.google.android.maps.Projection;
@@ -25,11 +21,13 @@ import com.google.android.maps.Projection;
  * {@link ProvidesMarkerImage}, {@link ProvidesMarkerTitle}, etc.), or
  * alternatively a "decorator" object can be specified that provides this
  * information given an item on the map.
- * 
+ *
  * @author Tony Allevato
- * @version 2012.04.22
+ * @author  Last changed by $Author: edwards $
+ * @version $Date: 2012/08/04 16:01 $
  */
-public class MarkerOverlay<Item> extends AbstractListOverlay<Item>
+public class MarkerOverlay<Item>
+    extends AbstractListOverlay<Item>
 {
 	//~ Instance/static variables .............................................
 
@@ -52,25 +50,22 @@ public class MarkerOverlay<Item> extends AbstractListOverlay<Item>
 	{
 		if (defaultMarker == null)
 		{
-			InputStream stream = JarResources.getImageStream(context,
-					MarkerOverlay.class, "marker_red.png");
-	
-			BitmapFactory.Options options = new BitmapFactory.Options();
-			Bitmap bitmap = BitmapFactory.decodeStream(stream, null, options);
-			int width = options.outWidth;
-			int height = options.outHeight;
+            Bitmap bitmap = JarResources.getBitmap(
+                context, MarkerOverlay.class, "marker_red.png");
+
+			int width = bitmap.getWidth();
+			int height = bitmap.getHeight();
 			int dx = width / 2;
 			int dy = height;
-	
-			defaultMarker = new BitmapDrawable(
-					context.getResources(), bitmap);
+
+			defaultMarker = new BitmapDrawable(context.getResources(), bitmap);
 			defaultMarker.setBounds(-dx, -dy, -dx + width, -dy + height);
 		}
-		
+
 		return defaultMarker;
 	}
-	
-	
+
+
 	// ----------------------------------------------------------
 	@Override
 	public void draw(Canvas canvas, MapView mapView, boolean shadow)
@@ -87,7 +82,7 @@ public class MarkerOverlay<Item> extends AbstractListOverlay<Item>
 			Item item = list.get(i);
 
 			GeoPoint geoPoint = getItemGeoPoint(item);
-			
+
 			if (geoPoint != null)
 			{
 				proj.toPixels(geoPoint, pt);
