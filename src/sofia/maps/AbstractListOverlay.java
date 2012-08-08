@@ -36,9 +36,11 @@ import com.google.android.maps.Overlay;
  * waypoints or stops and draws a line that connects them</li>
  * </ul>
  * <p>
- * By default, this class does provide support for displaying an informational
- * "balloon" when an item in the list is tapped. The balloon will display the
- * title and snippet text of the item. To disable this feature, see
+ * This class provides support for displaying an informational "balloon"
+ * containing the title and content of the item when it is tapped, but it is
+ * disabled by default for this class. The {@link MarkerOverlay} class enables
+ * it by default, and the {@link RouteOverlay} class leaves is disabled. Custom
+ * subclasses that want to enable this functionality should call
  * {@link #setShowsBalloonWhenClicked(boolean)}.
  * </p>
  * 
@@ -333,9 +335,13 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 		{
 			Method geoPointMethod = getAnnotatedMethod(
 					item.getClass(), ProvidesMarkerGeoPoint.class);
-			
+
 			if (geoPointMethod != null)
 			{
+				// First, look for a method with the @ProvidesMarkerGeoPoint
+				// annotation. If found, call it and use the GeoPoint object
+				// that it returns.
+
 				try
 				{
 					Object result = geoPointMethod.invoke(item);
@@ -367,6 +373,12 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 			}
 			else
 			{
+				// If there was no method annotated with
+				// @ProvidesMarkerGeoPoint, then look for a pair of methods
+				// annotated with @ProvidesMarkerLatitude and
+				// @ProvidesMarkerLongitude. If both are found and both return
+				// numeric values, use those for the coordinates.
+
 				Method latitudeMethod = getAnnotatedMethod(
 						item.getClass(), ProvidesMarkerLatitude.class);
 				Method longitudeMethod = getAnnotatedMethod(
@@ -380,8 +392,8 @@ public abstract class AbstractListOverlay<Item> extends Overlay
 				{
 					try
 					{
-						Object latitude = (Number) latitudeMethod.invoke(item);
-						Object longitude = (Number) longitudeMethod.invoke(item);
+						Object latitude = latitudeMethod.invoke(item);
+						Object longitude = longitudeMethod.invoke(item);
 
 						if (latitude == null && longitude == null)
 						{

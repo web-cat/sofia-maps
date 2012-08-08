@@ -40,6 +40,8 @@ public class MarkerOverlay<Item>
 	public MarkerOverlay(MapView mapView, List<Item> list)
 	{
 		super(mapView, list);
+		
+		setShowsBalloonWhenClicked(true);
 	}
 
 
