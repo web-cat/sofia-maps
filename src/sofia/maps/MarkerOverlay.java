@@ -50,8 +50,8 @@ public class MarkerOverlay<Item>
 	{
 		if (defaultMarker == null)
 		{
-            Bitmap bitmap = JarResources.getBitmap(
-                context, MarkerOverlay.class, "marker_red.png");
+            Bitmap bitmap = JarResources.getBitmap(context, "marker_red.png",
+                MarkerOverlay.class.getPackage().getName());
 
 			int width = bitmap.getWidth();
 			int height = bitmap.getHeight();

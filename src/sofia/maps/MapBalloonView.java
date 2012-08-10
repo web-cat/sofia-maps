@@ -73,8 +73,8 @@ public class MapBalloonView extends FrameLayout
 		layout.setOrientation(LinearLayout.VERTICAL);
 //		layout.setMinimumWidth(200);
 
-		Bitmap bitmap = JarResources.getBitmap(
-            context, MapBalloonView.class, "balloon.9.png");
+		Bitmap bitmap = JarResources.getBitmap(context, "balloon.9.png",
+		    MapBalloonView.class.getPackage().getName());
 		byte[] chunk = bitmap.getNinePatchChunk();
 		Rect padding = new Rect(8, 8, 8, 32);
 
@@ -156,8 +156,8 @@ public class MapBalloonView extends FrameLayout
 		lp.gravity = Gravity.CENTER;
 		return lp;
 	}
-	
-	
+
+
 	// ----------------------------------------------------------
 	@Override
 	public boolean onTouchEvent(MotionEvent e)
@@ -166,7 +166,7 @@ public class MapBalloonView extends FrameLayout
 
 		float x = e.getX();
 		float y = e.getY();
-		
+
 		if (x < imagePadding.left
 				|| y < imagePadding.top
 				|| x > getWidth() - imagePadding.right
