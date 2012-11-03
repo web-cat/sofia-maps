@@ -5,7 +5,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import sofia.internal.MethodDispatcher;
+import sofia.internal.events.EventDispatcher;
+import sofia.widget.ProvidesTitle;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -43,7 +44,7 @@ import com.google.android.maps.Overlay;
  * subclasses that want to enable this functionality should call
  * {@link #setShowsBalloonWhenClicked(boolean)}.
  * </p>
- * 
+ *
  * <h3>Event Handling</h3>
  * <p>
  * Users can implement the following methods in the context that owns this
@@ -64,161 +65,159 @@ import com.google.android.maps.Overlay;
  * in the overlay's list.</dd>
  * </dl>
  * </p>
- * 
+ *
  * @param <Item> the type of object in the list
- * 
+ *
  * @author Tony Allevato
  * @version 2012.04.22
  */
 public abstract class AbstractListOverlay<Item> extends Overlay
 {
-	//~ Instance/static variables .............................................
+    //~ Instance/static variables .............................................
 
-	private static final String ITEM_CLICKED_METHOD_NAME = "mapItemWasClicked";
+    private static final EventDispatcher mapItemWasClicked =
+            new EventDispatcher("mapItemWasClicked");
 
-	private List<Item> list;
+    private List<Item> list;
 
-	protected static final AnnotationDecorator defaultDecorator =
-			new AnnotationDecorator();
-	private Object decorator;
+    protected static final AnnotationDecorator defaultDecorator =
+            new AnnotationDecorator();
+    private Object decorator;
 
-	private boolean showsBalloonWhenClicked;
-	private MapView mapView;
-	private MapBalloonView balloonView;
-
-
-	//~ Constructors ..........................................................
-
-	// ----------------------------------------------------------
-	/**
-	 * Initializes a new {@code AbstractListOverlay}.
-	 * 
-	 * @param mapView the {@link MapView} to which this overlay will be added
-	 * @param list the list of objects to display in the overlay
-	 */
-	public AbstractListOverlay(MapView mapView, List<Item> list)
-	{
-		this.mapView = mapView;
-		this.list = list;
-		this.showsBalloonWhenClicked = true;
-	}
+    private boolean showsBalloonWhenClicked;
+    private MapView mapView;
+    private MapBalloonView balloonView;
 
 
-	//~ Methods ...............................................................
+    //~ Constructors ..........................................................
 
-	// ----------------------------------------------------------
-	/**
-	 * Gets the {@link MapView} on which this overlay will be displayed.
-	 * 
-	 * @return the {@link MapView} containing this overlay
-	 */
-	public MapView getMapView()
-	{
-		return mapView;
-	}
-
-
-	// ----------------------------------------------------------
-	/**
-	 * Gets the list of objects to display in the overlay.
-	 * 
-	 * @return the list of objects to display in the overlay
-	 */
-	public List<Item> getList()
-	{
-		return list;
-	}
+    // ----------------------------------------------------------
+    /**
+     * Initializes a new {@code AbstractListOverlay}.
+     *
+     * @param mapView the {@link MapView} to which this overlay will be added
+     * @param list the list of objects to display in the overlay
+     */
+    public AbstractListOverlay(MapView mapView, List<Item> list)
+    {
+        this.mapView = mapView;
+        this.list = list;
+        this.showsBalloonWhenClicked = true;
+    }
 
 
-	// ----------------------------------------------------------
-	/**
-	 * Sets the list of objects to display in the overlay. Calling this method
-	 * will automatically repaint the map view; you do not need to do so
-	 * separately.
-	 * 
-	 * @param newList the new list of objects to display in the overlay
-	 */
-	public void setList(List<Item> newList)
-	{
-		list = newList;
-		mapView.postInvalidate();
-	}
+    //~ Methods ...............................................................
+
+    // ----------------------------------------------------------
+    /**
+     * Gets the {@link MapView} on which this overlay will be displayed.
+     *
+     * @return the {@link MapView} containing this overlay
+     */
+    public MapView getMapView()
+    {
+        return mapView;
+    }
 
 
-	// ----------------------------------------------------------
-	public Object getDecorator()
-	{
-		return decorator;
-	}
+    // ----------------------------------------------------------
+    /**
+     * Gets the list of objects to display in the overlay.
+     *
+     * @return the list of objects to display in the overlay
+     */
+    public List<Item> getList()
+    {
+        return list;
+    }
 
 
-	// ----------------------------------------------------------
-	public void setDecorator(Object decorator)
-	{
-		this.decorator = decorator;
-	}
+    // ----------------------------------------------------------
+    /**
+     * Sets the list of objects to display in the overlay. Calling this method
+     * will automatically repaint the map view; you do not need to do so
+     * separately.
+     *
+     * @param newList the new list of objects to display in the overlay
+     */
+    public void setList(List<Item> newList)
+    {
+        list = newList;
+        mapView.postInvalidate();
+    }
 
 
-	// ----------------------------------------------------------
-	public boolean showsBalloonWhenClicked()
-	{
-		return showsBalloonWhenClicked;
-	}
+    // ----------------------------------------------------------
+    public Object getDecorator()
+    {
+        return decorator;
+    }
 
 
-	// ----------------------------------------------------------
-	public void setShowsBalloonWhenClicked(boolean showBalloon)
-	{
-		this.showsBalloonWhenClicked = showBalloon;
-	}
+    // ----------------------------------------------------------
+    public void setDecorator(Object decorator)
+    {
+        this.decorator = decorator;
+    }
 
 
-	// ----------------------------------------------------------
-	@Override
-	public boolean onTap(GeoPoint tapPoint, MapView mapView)
-	{
-		List<Item> list = getList();
+    // ----------------------------------------------------------
+    public boolean showsBalloonWhenClicked()
+    {
+        return showsBalloonWhenClicked;
+    }
 
-		boolean opened = false;
 
-		for (int i = list.size() - 1; i >= 0; i--)
-		{
-			Item item = list.get(i);
+    // ----------------------------------------------------------
+    public void setShowsBalloonWhenClicked(boolean showBalloon)
+    {
+        this.showsBalloonWhenClicked = showBalloon;
+    }
 
-			GeoPoint itemPoint = getItemGeoPoint(item);
-			
-			if (itemPoint != null)
-			{
-				if (hitTest(tapPoint, itemPoint, item))
-				{
-					MethodDispatcher dispatcher = new MethodDispatcher(
-							ITEM_CLICKED_METHOD_NAME, 1);
 
-					if (showsBalloonWhenClicked
-							&& !dispatcher.callMethodOn(
-									mapView.getContext(), item))
-					{
-						openBalloon(itemPoint, item);
-						opened = true;
-						break;
-					}
+    // ----------------------------------------------------------
+    @Override
+    public boolean onTap(GeoPoint tapPoint, MapView mapView)
+    {
+        List<Item> list = getList();
 
-					mapView.getController().animateTo(itemPoint);
-				}
-			}
-		}
+        boolean opened = false;
 
-		// If no marker was touched, we should hide the balloon.
-		if (showsBalloonWhenClicked && !opened)
-		{
-			mapView.removeView(balloonView);
-			balloonView = null;
-		}
+        for (int i = list.size() - 1; i >= 0; i--)
+        {
+            Item item = list.get(i);
 
-		return super.onTap(tapPoint, mapView);
-	}
-	
-	
+            GeoPoint itemPoint = getItemGeoPoint(item);
+
+            if (itemPoint != null)
+            {
+                if (hitTest(tapPoint, itemPoint, item))
+                {
+                    if (showsBalloonWhenClicked
+                            && !mapItemWasClicked.dispatch(
+                                    mapView.getContext(), item))
+                    {
+                        openBalloon(itemPoint, item);
+                        opened = true;
+                        break;
+                    }
+
+                    mapView.getController().animateTo(itemPoint);
+                }
+            }
+        }
+
+        // If no marker was touched, we should hide the balloon.
+        if (showsBalloonWhenClicked && !opened)
+        {
+            mapView.removeView(balloonView);
+            balloonView = null;
+        }
+
+        return super.onTap(tapPoint, mapView);
+    }
+
+
     // ----------------------------------------------------------
     /**
      * Determines if the specified geopoint falls anywhere within the bounds of
@@ -238,300 +237,300 @@ public abstract class AbstractListOverlay<Item> extends Overlay
     }
 
 
-	// ----------------------------------------------------------
+    // ----------------------------------------------------------
     protected Rect getItemBounds(Point point, Item item)
     {
-    	return new Rect(point.x - 10, point.y - 10,
-    			point.x + 10, point.y + 10);
+        return new Rect(point.x - 10, point.y - 10,
+                point.x + 10, point.y + 10);
     }
 
 
-	// ----------------------------------------------------------
-	protected void openBalloon(GeoPoint geoPoint, Item item)
-	{
-		MapView.LayoutParams params = new MapView.LayoutParams(
-				LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT,
-				geoPoint, MapView.LayoutParams.BOTTOM_CENTER);
-		params.mode = MapView.LayoutParams.MODE_MAP;
+    // ----------------------------------------------------------
+    protected void openBalloon(GeoPoint geoPoint, Item item)
+    {
+        MapView.LayoutParams params = new MapView.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT,
+                geoPoint, MapView.LayoutParams.BOTTOM_CENTER);
+        params.mode = MapView.LayoutParams.MODE_MAP;
 
-		if (balloonView == null)
-		{
-			balloonView = new MapBalloonView(mapView.getContext());
-			mapView.addView(balloonView, params);
-		}
-		else
-		{
-			balloonView.setLayoutParams(params);
-		}
+        if (balloonView == null)
+        {
+            balloonView = new MapBalloonView(mapView.getContext());
+            mapView.addView(balloonView, params);
+        }
+        else
+        {
+            balloonView.setLayoutParams(params);
+        }
 
-		balloonView.setFields(
-				item, getItemTitle(item), getItemContent(item));
-		balloonView.post(new Runnable() {
-			@Override
-			public void run()
-			{
-				int cx = balloonView.getLeft() + balloonView.getWidth() / 2;
-				int cy = balloonView.getTop() + balloonView.getHeight() / 2;
+        balloonView.setFields(
+                item, getItemTitle(item), getItemContent(item));
+        balloonView.post(new Runnable() {
+            @Override
+            public void run()
+            {
+                int cx = balloonView.getLeft() + balloonView.getWidth() / 2;
+                int cy = balloonView.getTop() + balloonView.getHeight() / 2;
 
-				GeoPoint shiftedPoint = mapView.getProjection().fromPixels(cx, cy);
-				mapView.getController().animateTo(shiftedPoint);
-			}
-		});
-	}
-
-
-	// ----------------------------------------------------------
-	protected GeoPoint getItemGeoPoint(Item item)
-	{
-		GeoPoint geoPoint; /*= decorate(decorator, "getMarkerDrawable",
-				Drawable.class, item);
-		
-		if (title == null)*/
-		{
-			geoPoint = defaultDecorator.getItemGeoPoint(item);
-		}
-		
-		return geoPoint;
-	}
+                GeoPoint shiftedPoint = mapView.getProjection().fromPixels(cx, cy);
+                mapView.getController().animateTo(shiftedPoint);
+            }
+        });
+    }
 
 
-	// ----------------------------------------------------------
-	protected String getItemTitle(Item item)
-	{
-		String title; /*= decorate(decorator, "getMarkerDrawable",
-				Drawable.class, item);
-		
-		if (title == null)*/
-		{
-			title = defaultDecorator.getItemTitle(item);
-		}
-		
-		return title;
-	}
+    // ----------------------------------------------------------
+    protected GeoPoint getItemGeoPoint(Item item)
+    {
+        GeoPoint geoPoint; /*= decorate(decorator, "getMarkerDrawable",
+                Drawable.class, item);
+
+        if (title == null)*/
+        {
+            geoPoint = defaultDecorator.getItemGeoPoint(item);
+        }
+
+        return geoPoint;
+    }
 
 
-	// ----------------------------------------------------------
-	protected Object getItemContent(Item item)
-	{
-		Object content; /*= decorate(decorator, "getMarkerDrawable",
-				Drawable.class, item);
-		
-		if (snippet == null)*/
-		{
-			content = defaultDecorator.getItemContent(item);
-		}
-		
-		return content;
-	}
+    // ----------------------------------------------------------
+    protected String getItemTitle(Item item)
+    {
+        String title; /*= decorate(decorator, "getMarkerDrawable",
+                Drawable.class, item);
+
+        if (title == null)*/
+        {
+            title = defaultDecorator.getItemTitle(item);
+        }
+
+        return title;
+    }
 
 
-	//~ Inner classes .........................................................
+    // ----------------------------------------------------------
+    protected Object getItemContent(Item item)
+    {
+        Object content; /*= decorate(decorator, "getMarkerDrawable",
+                Drawable.class, item);
 
-	// ----------------------------------------------------------
-	protected static class AnnotationDecorator
-	{
-		// ----------------------------------------------------------
-		public GeoPoint getItemGeoPoint(Object item)
-		{
-			Method geoPointMethod = getAnnotatedMethod(
-					item.getClass(), ProvidesMarkerGeoPoint.class);
+        if (snippet == null)*/
+        {
+            content = defaultDecorator.getItemContent(item);
+        }
 
-			if (geoPointMethod != null)
-			{
-				// First, look for a method with the @ProvidesMarkerGeoPoint
-				// annotation. If found, call it and use the GeoPoint object
-				// that it returns.
-
-				try
-				{
-					Object result = geoPointMethod.invoke(item);
-					
-					if (result == null)
-					{
-						return null;
-					}
-					else if (result instanceof GeoPoint)
-					{
-						return (GeoPoint) result;
-					}
-					else
-					{
-						throw new IllegalStateException(
-								"The method annotated with "
-								+ "@ProvidesMarkerGeoPoint must return a "
-								+ "GeoPoint object.");
-					}
-				}
-				catch (IllegalAccessException e)
-				{
-					throw new IllegalStateException(e);
-				}
-				catch (InvocationTargetException e)
-				{
-					throw new IllegalStateException(e.getCause());
-				}
-			}
-			else
-			{
-				// If there was no method annotated with
-				// @ProvidesMarkerGeoPoint, then look for a pair of methods
-				// annotated with @ProvidesMarkerLatitude and
-				// @ProvidesMarkerLongitude. If both are found and both return
-				// numeric values, use those for the coordinates.
-
-				Method latitudeMethod = getAnnotatedMethod(
-						item.getClass(), ProvidesMarkerLatitude.class);
-				Method longitudeMethod = getAnnotatedMethod(
-						item.getClass(), ProvidesMarkerLongitude.class);
-
-				if (latitudeMethod == null && longitudeMethod == null)
-				{
-					return null;
-				}
-				else if (latitudeMethod != null && longitudeMethod != null)
-				{
-					try
-					{
-						Object latitude = latitudeMethod.invoke(item);
-						Object longitude = longitudeMethod.invoke(item);
-
-						if (latitude == null && longitude == null)
-						{
-							return null;
-						}
-						else if (latitude instanceof Number
-								&& longitude instanceof Number)
-						{
-							return new GeoPoint(
-									(int) (((Number) latitude)
-											.doubleValue() * 1e6),
-									(int) (((Number) longitude)
-											.doubleValue() * 1e6));
-						}
-						else if (latitude == null || longitude == null)
-						{
-							throw new IllegalStateException(
-									"If either @ProvidesMarkerLatitude or "
-									+ "@ProvidesMarkerLongitude returns null, "
-									+ "then the other must as well.");
-						}
-						else
-						{
-							throw new IllegalStateException(
-									"@ProvidesMarkerLatitude and "
-									+ "@ProvidesMarkerLongitude must return "
-									+ "a numeric value.");
-						}
-					}
-					catch (IllegalAccessException e)
-					{
-						throw new IllegalStateException(e);
-					}
-					catch (InvocationTargetException e)
-					{
-						throw new IllegalStateException(e.getCause());
-					}
-				}
-				else
-				{
-					throw new IllegalStateException(
-							"If either @ProvidesMarkerLatitude or "
-							+ "@ProvidesMarkerLongitude is provided, then the "
-							+ "other must be as well.");
-				}				
-			}
-		}
+        return content;
+    }
 
 
-		// ----------------------------------------------------------
-		public String getItemTitle(Object item)
-		{
-			String title = null;
-			
-			Method method = getAnnotatedMethod(
-					item.getClass(), ProvidesMarkerTitle.class);
-			
-			if (method != null)
-			{
-				try
-				{
-					Object result = method.invoke(item);
-					return result != null ? result.toString() : null;
-				}
-				catch (IllegalAccessException e)
-				{
-					throw new IllegalStateException(e);
-				}
-				catch (InvocationTargetException e)
-				{
-					throw new IllegalStateException(e.getCause());
-				}
-			}
-			else
-			{
-				title = item.toString();
-			}
+    //~ Inner classes .........................................................
 
-			return title;
-		}
+    // ----------------------------------------------------------
+    protected static class AnnotationDecorator
+    {
+        // ----------------------------------------------------------
+        public GeoPoint getItemGeoPoint(Object item)
+        {
+            Method geoPointMethod = getAnnotatedMethod(
+                    item.getClass(), ProvidesMarkerGeoPoint.class);
+
+            if (geoPointMethod != null)
+            {
+                // First, look for a method with the @ProvidesMarkerGeoPoint
+                // annotation. If found, call it and use the GeoPoint object
+                // that it returns.
+
+                try
+                {
+                    Object result = geoPointMethod.invoke(item);
+
+                    if (result == null)
+                    {
+                        return null;
+                    }
+                    else if (result instanceof GeoPoint)
+                    {
+                        return (GeoPoint) result;
+                    }
+                    else
+                    {
+                        throw new IllegalStateException(
+                                "The method annotated with "
+                                + "@ProvidesMarkerGeoPoint must return a "
+                                + "GeoPoint object.");
+                    }
+                }
+                catch (IllegalAccessException e)
+                {
+                    throw new IllegalStateException(e);
+                }
+                catch (InvocationTargetException e)
+                {
+                    throw new IllegalStateException(e.getCause());
+                }
+            }
+            else
+            {
+                // If there was no method annotated with
+                // @ProvidesMarkerGeoPoint, then look for a pair of methods
+                // annotated with @ProvidesMarkerLatitude and
+                // @ProvidesMarkerLongitude. If both are found and both return
+                // numeric values, use those for the coordinates.
+
+                Method latitudeMethod = getAnnotatedMethod(
+                        item.getClass(), ProvidesMarkerLatitude.class);
+                Method longitudeMethod = getAnnotatedMethod(
+                        item.getClass(), ProvidesMarkerLongitude.class);
+
+                if (latitudeMethod == null && longitudeMethod == null)
+                {
+                    return null;
+                }
+                else if (latitudeMethod != null && longitudeMethod != null)
+                {
+                    try
+                    {
+                        Object latitude = latitudeMethod.invoke(item);
+                        Object longitude = longitudeMethod.invoke(item);
+
+                        if (latitude == null && longitude == null)
+                        {
+                            return null;
+                        }
+                        else if (latitude instanceof Number
+                                && longitude instanceof Number)
+                        {
+                            return new GeoPoint(
+                                    (int) (((Number) latitude)
+                                            .doubleValue() * 1e6),
+                                    (int) (((Number) longitude)
+                                            .doubleValue() * 1e6));
+                        }
+                        else if (latitude == null || longitude == null)
+                        {
+                            throw new IllegalStateException(
+                                    "If either @ProvidesMarkerLatitude or "
+                                    + "@ProvidesMarkerLongitude returns null, "
+                                    + "then the other must as well.");
+                        }
+                        else
+                        {
+                            throw new IllegalStateException(
+                                    "@ProvidesMarkerLatitude and "
+                                    + "@ProvidesMarkerLongitude must return "
+                                    + "a numeric value.");
+                        }
+                    }
+                    catch (IllegalAccessException e)
+                    {
+                        throw new IllegalStateException(e);
+                    }
+                    catch (InvocationTargetException e)
+                    {
+                        throw new IllegalStateException(e.getCause());
+                    }
+                }
+                else
+                {
+                    throw new IllegalStateException(
+                            "If either @ProvidesMarkerLatitude or "
+                            + "@ProvidesMarkerLongitude is provided, then the "
+                            + "other must be as well.");
+                }
+            }
+        }
 
 
-		// ----------------------------------------------------------
-		public Object getItemContent(Object item)
-		{
-			Object content = null;
-			
-			Method method = getAnnotatedMethod(
-					item.getClass(), ProvidesMarkerContent.class);
-			
-			if (method != null)
-			{
-				try
-				{
-					content = method.invoke(item);
-				}
-				catch (IllegalAccessException e)
-				{
-					throw new IllegalStateException(e);
-				}
-				catch (InvocationTargetException e)
-				{
-					throw new IllegalStateException(e.getCause());
-				}
-			}
+        // ----------------------------------------------------------
+        public String getItemTitle(Object item)
+        {
+            String title = null;
 
-			return content;
-		}
+            Method method = getAnnotatedMethod(
+                    item.getClass(), ProvidesTitle.class);
 
+            if (method != null)
+            {
+                try
+                {
+                    Object result = method.invoke(item);
+                    return result != null ? result.toString() : null;
+                }
+                catch (IllegalAccessException e)
+                {
+                    throw new IllegalStateException(e);
+                }
+                catch (InvocationTargetException e)
+                {
+                    throw new IllegalStateException(e.getCause());
+                }
+            }
+            else
+            {
+                title = item.toString();
+            }
 
-		// ----------------------------------------------------------
-		public Drawable getItemImage(Object item)
-		{
-			// TODO handle various types: Drawable, Bitmap, File, Uri
-
-			return null;
-		}
-	}
+            return title;
+        }
 
 
-	// ----------------------------------------------------------
-	/**
-	 * TODO Replace with reflecton API.
-	 */
-	private static Method getAnnotatedMethod(
-			Class<?> itemClass, Class<? extends Annotation> annotation)
-	{
-		Method method = null;
+        // ----------------------------------------------------------
+        public Object getItemContent(Object item)
+        {
+            Object content = null;
 
-		for (Method currentMethod : itemClass.getMethods())
-		{
-			if (currentMethod.getAnnotation(annotation) != null)
-			{
-				method = currentMethod;
-				break;
-			}
-		}
+            Method method = getAnnotatedMethod(
+                    item.getClass(), ProvidesMarkerContent.class);
 
-		return method;
-	}
+            if (method != null)
+            {
+                try
+                {
+                    content = method.invoke(item);
+                }
+                catch (IllegalAccessException e)
+                {
+                    throw new IllegalStateException(e);
+                }
+                catch (InvocationTargetException e)
+                {
+                    throw new IllegalStateException(e.getCause());
+                }
+            }
+
+            return content;
+        }
+
+
+        // ----------------------------------------------------------
+        public Drawable getItemImage(Object item)
+        {
+            // TODO handle various types: Drawable, Bitmap, File, Uri
+
+            return null;
+        }
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * TODO Replace with reflecton API.
+     */
+    private static Method getAnnotatedMethod(
+            Class<?> itemClass, Class<? extends Annotation> annotation)
+    {
+        Method method = null;
+
+        for (Method currentMethod : itemClass.getMethods())
+        {
+            if (currentMethod.getAnnotation(annotation) != null)
+            {
+                method = currentMethod;
+                break;
+            }
+        }
+
+        return method;
+    }
 }
