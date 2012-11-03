@@ -8,6 +8,7 @@ import sofia.internal.SofiaUtils;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -21,7 +22,7 @@ import com.google.android.maps.MapView;
  * Due to implementation details in the Android library, {@code MapScreen}
  * cannot actually extend the {@link Screen} class. It does, however, support
  * all the same helper methods that {@code Screen} supports.
- * 
+ *
  * TODO make sure this class is in-sync with Screen
  *
  * @author  Tony Allevato
@@ -109,21 +110,47 @@ public class MapScreen extends MapActivity
 
     // ----------------------------------------------------------
     @Override
+    public LayoutInflater getLayoutInflater()
+    {
+        return (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+    }
+
+
+    // ----------------------------------------------------------
+    @Override
     public Object getSystemService(String service)
     {
-    	if (LAYOUT_INFLATER_SERVICE.equals(service))
-    	{
-    		if (layoutInflater == null)
-    		{
-    			layoutInflater = new SofiaLayoutInflater(this);
-    		}
-    		
-    		return layoutInflater;
-    	}
-    	else
-    	{
-    		return super.getSystemService(service);
-    	}
+        if (LAYOUT_INFLATER_SERVICE.equals(service))
+        {
+            if (layoutInflater == null)
+            {
+                LayoutInflater inflater =
+                        (LayoutInflater) super.getSystemService(service);
+                layoutInflater = new SofiaLayoutInflater(inflater, this);
+            }
+
+            return layoutInflater;
+        }
+        else
+        {
+            return super.getSystemService(service);
+        }
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * This method is called after an attempted was made to inflate the
+     * screen's layout. Most users will not need to call or override this
+     * method; it is provided for Sofia's own subclasses of {@code Screen} to
+     * support custom behavior depending on whether a user layout was provided
+     * or not.
+     *
+     * @return true if a layout was found and inflated, otherwise false
+     */
+    protected void afterLayoutInflated(boolean inflated)
+    {
+        // Do nothing.
     }
 
 
@@ -145,6 +172,7 @@ public class MapScreen extends MapActivity
         final Object[] args = mixin.getScreenArguments(getIntent());
 
         beforeInitialize();
+        afterLayoutInflated(mixin.tryToInflateLayout());
         mixin.invokeInitialize(args);
 
         // Force the map view to be created if the user didn't already create
@@ -169,8 +197,35 @@ public class MapScreen extends MapActivity
     @Override
     protected void onStop()
     {
-    	PersistenceManager.getInstance().savePersistentContext(this);
-    	super.onStop();
+        PersistenceManager.getInstance().savePersistentContext(this);
+        super.onStop();
+    }
+
+
+    // ----------------------------------------------------------
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        mixin.runResumeInjections();
+    }
+
+
+    // ----------------------------------------------------------
+    @Override
+    protected void onPause()
+    {
+        mixin.runPauseInjections();
+        super.onPause();
+    }
+
+
+    // ----------------------------------------------------------
+    @Override
+    protected void onDestroy()
+    {
+        mixin.runDestroyInjections();
+        super.onDestroy();
     }
 
 
@@ -185,28 +240,10 @@ public class MapScreen extends MapActivity
 
     // ----------------------------------------------------------
     @Override
-    protected void onPause()
-    {
-    	mixin.runPauseInjections();
-    	super.onPause();
-    }
-
-
-    // ----------------------------------------------------------
-    @Override
-    protected void onResume()
-    {
-    	mixin.runResumeInjections();
-    	super.onResume();
-    }
-
-
-    // ----------------------------------------------------------
-    @Override
     public boolean onCreateOptionsMenu(Menu menu)
     {
-    	return mixin.onCreateOptionsMenu(menu)
-    			|| super.onCreateOptionsMenu(menu);
+        return mixin.onCreateOptionsMenu(menu)
+                || super.onCreateOptionsMenu(menu);
     }
 
 
@@ -214,15 +251,19 @@ public class MapScreen extends MapActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item)
     {
-    	return mixin.onOptionsItemSelected(item)
-    			|| super.onOptionsItemSelected(item);
+        return mixin.onOptionsItemSelected(item)
+                || super.onOptionsItemSelected(item);
     }
 
 
     // ----------------------------------------------------------
+    /**
+     * Not intended to be called by users; this method is public as an
+     * implementation detail.
+     */
     public ScreenMixin getScreenMixin()
     {
-    	return mixin;
+        return mixin;
     }
 
 
@@ -230,8 +271,8 @@ public class MapScreen extends MapActivity
     @Override
     public void addContentView(View view, ViewGroup.LayoutParams layout)
     {
-    	viewHierarchyWasModified = true;
-    	super.addContentView(view, layout);
+        viewHierarchyWasModified = true;
+        super.addContentView(view, layout);
     }
 
 
@@ -239,8 +280,8 @@ public class MapScreen extends MapActivity
     @Override
     public void setContentView(int layoutResID)
     {
-    	viewHierarchyWasModified = true;
-    	super.setContentView(layoutResID);
+        viewHierarchyWasModified = true;
+        super.setContentView(layoutResID);
     }
 
 
@@ -248,8 +289,8 @@ public class MapScreen extends MapActivity
     @Override
     public void setContentView(View view)
     {
-    	viewHierarchyWasModified = true;
-    	super.setContentView(view);
+        viewHierarchyWasModified = true;
+        super.setContentView(view);
     }
 
 
@@ -257,44 +298,44 @@ public class MapScreen extends MapActivity
     @Override
     public void setContentView(View view, ViewGroup.LayoutParams layout)
     {
-    	viewHierarchyWasModified = true;
-    	super.setContentView(view, layout);
+        viewHierarchyWasModified = true;
+        super.setContentView(view, layout);
     }
 
 
     // ----------------------------------------------------------
     protected MapView getMapView()
     {
-    	if (viewHierarchyWasModified)
-    	{
-    		int id = SofiaUtils.getResourceId(this, "id", "mapView");
+        if (viewHierarchyWasModified)
+        {
+            int id = SofiaUtils.getResourceId(this, "id", "mapView");
 
-    		if (id != 0)
-    		{
-    			mapView = (MapView) findViewById(id);
-    		}
-    	}
-    	else if (mapView == null)
-    	{
-        	mapView = new MapView(this, mapsApiKey());
-        	mapView.setClickable(true);
-        	mapView.setBuiltInZoomControls(true);
-        	super.setContentView(mapView);
-    	}
+            if (id != 0)
+            {
+                mapView = (MapView) findViewById(id);
+            }
+        }
+        else if (mapView == null)
+        {
+            mapView = new MapView(this, mapsApiKey());
+            mapView.setClickable(true);
+            mapView.setBuiltInZoomControls(true);
+            super.setContentView(mapView);
+        }
 
-    	if (mapView != null)
-    	{
-    		mapView.setClickable(true);
-    		mapView.setBuiltInZoomControls(true);
-    	}
-    	else
-    	{
-    		throw new IllegalStateException("If you use a custom layout for "
-    				+ "your MapScreen, you must provide a MapView in that "
-    				+ "layout with the identifier 'mapView'.");
-    	}
+        if (mapView != null)
+        {
+            mapView.setClickable(true);
+            mapView.setBuiltInZoomControls(true);
+        }
+        else
+        {
+            throw new IllegalStateException("If you use a custom layout for "
+                    + "your MapScreen, you must provide a MapView in that "
+                    + "layout with the identifier 'mapView'.");
+        }
 
-    	return mapView;
+        return mapView;
     }
 
 
@@ -308,6 +349,19 @@ public class MapScreen extends MapActivity
     public void log(String message)
     {
         Log.i("User Log", message);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Displays an alert dialog and waits for the user to dismiss it.
+     *
+     * @param title the title to display in the dialog
+     * @param message the message to display in the dialog
+     */
+    public void showAlertDialog(String title, String message)
+    {
+        mixin.showAlertDialog(title, message);
     }
 
 
@@ -379,10 +433,12 @@ public class MapScreen extends MapActivity
      * return until the new activity is dismissed by the user.
      *
      * @param intent an {@code Intent} that describes the activity to start
+     * @param returnMethod the name of the method to call when the activity
+     *     returns
      */
-    public void presentActivity(Intent intent)
+    public void presentActivity(Intent intent, String returnMethod)
     {
-        mixin.presentActivity(intent);
+        mixin.presentActivity(intent, returnMethod);
     }
 
 
@@ -400,6 +456,21 @@ public class MapScreen extends MapActivity
         Object... args)
     {
         mixin.presentScreen(screenClass, Void.class, args);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Call this method when the current screen is finished and should be
+     * closed. The specified value will be passed back to the previous screen
+     * and returned from the {@link #presentScreen(Class, Object...)} call that
+     * originally presented this screen.
+     *
+     * @param result the value to pass back to the previous screen
+     */
+    public void finish(Object result)
+    {
+        mixin.finish(result);
     }
 
 
